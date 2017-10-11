@@ -13,6 +13,7 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
 * Install Java 1.8
 * Google cloud SDK
 * google cloud component beta
+* google bigquery python module
 
 
 
@@ -25,6 +26,9 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
 * Airflow home is /usr/local/airflow
 * Note: Env variable to load examples is set to 'N' , LOAD_EX=n . Dont change it to 'Y'. there is issue in dag execution.
 
+##public Docker account credential
+        username : sstumgdocker
+        password: 01music
 
 ## Installation  on google compute engine
 

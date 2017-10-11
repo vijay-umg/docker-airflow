@@ -29,6 +29,9 @@ fi
 # Update airflow config - Fernet key
 sed -i "s|\$FERNET_KEY|$FERNET_KEY|" "$AIRFLOW_HOME"/airflow.cfg
 
+# Update google project name
+sed -i "s|\$PROJECT_NAME|$PROJECT_NAME|" "$AIRFLOW_HOME"/airflow.cfg
+
 if [ -n "$REDIS_PASSWORD" ]; then
     REDIS_PREFIX=:${REDIS_PASSWORD}@
 else

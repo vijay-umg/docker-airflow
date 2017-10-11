@@ -1,39 +1,63 @@
-# docker-airflow
-[![CircleCI branch](https://img.shields.io/circleci/project/puckel/docker-airflow/master.svg?maxAge=2592000)](https://circleci.com/gh/puckel/docker-airflow/tree/master)
-[![Docker Build Status](https://img.shields.io/docker/build/puckel/docker-airflow.svg)]()
+# sst-docker-airflow
 
-[![Docker Hub](https://img.shields.io/badge/docker-ready-blue.svg)](https://hub.docker.com/r/puckel/docker-airflow/)
-[![Docker Pulls](https://img.shields.io/docker/pulls/puckel/docker-airflow.svg)]()
-[![Docker Stars](https://img.shields.io/docker/stars/puckel/docker-airflow.svg)]()
 
-This repository contains **Dockerfile** of [apache-airflow](https://github.com/apache/incubator-airflow) for [Docker](https://www.docker.com/)'s [automated build](https://registry.hub.docker.com/u/puckel/docker-airflow/) published to the public [Docker Hub Registry](https://registry.hub.docker.com/).
+This repository contains **Dockerfile** of apache airflow.  This is build based on custom version of [apache-airflow](https://github.com/umg/sstumg-incubator-airflow.git)
+Build based on core framework from puckel airflow(https://github.com/puckel/docker-airflow).
+  
+## Docker image Informations
 
-## Informations
-
-* Based on Python (3.6-stretch) official Image [python:3.6-stretch](https://hub.docker.com/_/python/) and uses the official [Postgres](https://hub.docker.com/_/postgres/) as backend and [Redis](https://hub.docker.com/_/redis/) as queue
+* Based on Python (2.7-stretch) official Image [python:2.7-stretch](https://hub.docker.com/_/python/) and uses the official [Postgres](https://hub.docker.com/_/postgres/) as backend and [Redis](https://hub.docker.com/_/redis/) as queue
 * Install [Docker](https://www.docker.com/)
 * Install [Docker Compose](https://docs.docker.com/compose/install/)
-* Following the Airflow release from [Python Package Index](https://pypi.python.org/pypi/apache-airflow)
+* Following the custom Airflow  from github [Airflow](https://github.com/umg/sstumg-incubator-airflow.git)
+* Install Java 1.8
+* Google cloud SDK
+* google cloud component beta
 
-/!\ If you want to use Airflow using Python 2, use TAG [1.8.1](https://github.com/puckel/docker-airflow/releases/tag/1.8.1)
 
-## Installation
+
+## Airflow(celery executor) Informations
+* Local drive **/opt/app** mapped to **/opt/app** in container
+* Local drive **/opt/airflow/dags** mapped to **/usr/local/airflow/dags** in container
+* environment variable **PROJECT_NAME** is set to umg-swift
+* Logs are copied to google cloud storage under the project bucket
+* all plugins under plugins dir is copied to airflow home
+* Airflow home is /usr/local/airflow
+* Note: Env variable to load examples is set to 'N' , LOAD_EX=n . Dont change it to 'Y'. there is issue in dag execution.
+
+
+## Installation  on google compute engine
+
+1. Install Docker.
+2. Install docker compose
+3. copy the docker-compose-CeleryExecutor-version-1-8-1-custom.yml to compute engine.
+4. Create local drive /opt/app and /opt/airflow/dags on compute engine
+5. trigger airflow container by 
+
+        sudo docker-compose -f docker-compose-CeleryExecutor-version-1-8-1-custom.yml up -d
+        
+        scale worker containers by
+        docker-compose scale worker=5
+6. scp the dag file to /opt/airflow/dags. give it a few mins to sync with airflow container.
+7. create folder based on application name in /opt/app
+8. scp jar file or code to /opt/app/{app_name}.
+
+## General Installation commands
 
 Pull the image from the Docker repository.
 
-        docker pull puckel/docker-airflow
+        docker pull sstumgdocker/docker-airflow:1.8.1-custom
 
 ## Build
 
-For example, if you need to install [Extra Packages](https://pythonhosted.org/airflow/installation.html#extra-package), edit the Dockerfile and then build it.
-
-        docker build --rm -t puckel/docker-airflow .
+        docker build --rm -t sstumgdocker/docker-airflow .
+        docker tag sstumgdocker/docker-airflow:latest sstumgdocker/docker-airflow:1.8.1-custom
 
 ## Usage
 
 By default, docker-airflow runs Airflow with **SequentialExecutor** :
 
-        docker run -d -p 8080:8080 puckel/docker-airflow
+        docker run -d -p 8080:8080 sstumgdocker/docker-airflow:1.8.1-custom
 
 If you want to run another executor, use the other docker-compose.yml files provided in this repository.
 
@@ -43,9 +67,10 @@ For **LocalExecutor** :
 
 For **CeleryExecutor** :
 
-        docker-compose -f docker-compose-CeleryExecutor.yml up -d
+        docker-compose -f docker-compose-CeleryExecutor-version-1-8-1-custom.yml up -d
 
-NB : If you don't want to have DAGs example loaded (default=True), you've to set the following environment variable :
+## Note : 
+don't load examples while starting the docker container. There is a issue and it doesn't allow any dags to trigger. set LOAD_EX=n always :
 
 `LOAD_EX=n`
 
@@ -62,7 +87,6 @@ For encrypted connection passwords (in Local or Celery Executor), you must have 
 
         python -c "from cryptography.fernet import Fernet; FERNET_KEY = Fernet.generate_key().decode(); print FERNET_KEY"
 
-Check [Airflow Documentation](https://pythonhosted.org/airflow/)
 
 
 ## Install custom python package
@@ -83,8 +107,6 @@ Easy scaling using docker-compose:
 
         docker-compose scale worker=5
 
-This can be used to scale to a multi node setup using docker swarm.
 
-# Wanna help?
 
-Fork, improve and PR. ;-)
+

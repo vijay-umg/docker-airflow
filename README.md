@@ -26,7 +26,7 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
 * Airflow home is /usr/local/airflow
 * Note: Env variable to load examples is set to 'N' , LOAD_EX=n . Dont change it to 'Y'. there is issue in dag execution.
 
-##public Docker account credential
+## Docker account credential
 
         username : sstumgdocker
         password: 01music
@@ -66,6 +66,7 @@ By default, docker-airflow runs Airflow with **SequentialExecutor** :
 
 If you want to run another executor, use the other docker-compose.yml files provided in this repository.
 
+### Deploy Docker compose 
 For **LocalExecutor** :
 
         sudo docker-compose -f docker-compose-LocalExecutor.yml up -d

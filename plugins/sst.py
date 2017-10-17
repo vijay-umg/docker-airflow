@@ -22,6 +22,7 @@ class BigQueryHook(GoogleCloudBaseHook, DbApiHook):
     """
     Interact with BigQuery. This hook uses the Google Cloud Platform
     connection.
+
     """
     conn_name_attr = 'bigquery_conn_id'
 
@@ -35,6 +36,7 @@ class BigQueryHook(GoogleCloudBaseHook, DbApiHook):
 
         """
         Returns a BigQuery PEP 249 connection object.
+
         """
         project = self._get_field('project')
         json_key_file = self._get_field('key_path')
@@ -52,13 +54,12 @@ class BigQueryHook(GoogleCloudBaseHook, DbApiHook):
 
 
         job_id, _results=self.client().query(query=sql,
-                                             use_legacy_sql=use_legacy_sql)
+                                        use_legacy_sql=use_legacy_sql)
 
         return job_id
 
-    def fetchone(self, job_id):
 
-
+    def fetch(self, job_id):
         complete = False
         sec = 0
         while not complete:
@@ -73,9 +74,14 @@ class BigQueryHook(GoogleCloudBaseHook, DbApiHook):
         else:
             logging.info("Query failed")
 
-        logging.info('results: %s', results[0])
+        logging.info('results: %s', results)
 
-        return results[0]
+        return results
+
+    def fetchone(self, job_id):
+
+        return self.fetch(job_id)[0]
+
 
     def write_to_table(self,
                        sql,
@@ -86,47 +92,48 @@ class BigQueryHook(GoogleCloudBaseHook, DbApiHook):
                        ):
 
         job = self.client().write_to_table(query=sql,
-                                           dataset=destination_dataset,
-                                           table=destination_table,
-                                           use_legacy_sql=use_legacy_sql,
-                                           write_disposition=write_disposition,
-                                           maximum_billing_tier=5
-                                           )
+                                    dataset=destination_dataset,
+                                    table=destination_table,
+                                    use_legacy_sql=use_legacy_sql,
+                                    write_disposition=write_disposition,
+                                    maximum_billing_tier=5
+                                   )
         try:
             job_resource = self.client().wait_for_job(job, timeout=600)
             logging.info("Job completed: {}".format(job_resource))
 
         except BigQueryTimeoutException:
             logging.info("Query Timeout")
-
+    
     def export_to_gcs(self,
-                      dataset,
+                      dataset, 
                       table,
                       gcs_uri):
 
-
+    
 
         job = self.client().export_data_to_uris( [gcs_uri],
-                                                 dataset,
-                                                 table,
-                                                 destination_format='NEWLINE_DELIMITED_JSON')
+                                   dataset,
+                                   table,
+                                   destination_format='NEWLINE_DELIMITED_JSON')
         try:
             job_resource = self.client().wait_for_job(job, timeout=600)
             logging.info('Export job: %s', job_resource)
         except BigQueryTimeoutException:
             logging.info('Timeout occured while exporting table %s.%s to %s',
-                         dataset,
-                         table,
-                         gcs_uri)
+                dataset,
+                table,
+                gcs_uri)
 
 class SstGcsExportOperator(BaseOperator):
     """
     Exports data from BQ table to GCS
+
     """
     ui_color = '#8033FF'
     template_fields = ('source_table',
                        'gcs_uri')
-
+    
     @apply_defaults
     def __init__(self,
                  source_table,
@@ -138,7 +145,7 @@ class SstGcsExportOperator(BaseOperator):
         self.bigquery_conn_id = bigquery_conn_id
 
         super(SstGcsExportOperator, self).__init__(*args, **kwargs)
-
+    
     def execute(self, context):
         logging.info('Exporting to %s from %s',
                      self.gcs_uri,
@@ -151,13 +158,43 @@ class SstGcsExportOperator(BaseOperator):
         hook.export_to_gcs(dataset=source_table_split[1],
                            table=source_table_split[2],
                            gcs_uri=self.gcs_uri)
+                
+class SstQueryDataOperator(BaseOperator):
+    """
+    Returns results of a SQL query
 
+    """
+    ui_color = '#b4e6f0'
+    template_fields = ('sql',)
+    template_ext = ('.sql',)
+
+    @apply_defaults
+    def __init__(self,
+                 sql,
+                 bigquery_conn_id='bigquery_default',
+                 *args, **kwargs):
+        self.sql = sql
+        self.bigquery_conn_id = bigquery_conn_id
+        super(SstQueryDataOperator, self).__init__(*args, **kwargs)
+
+    def execute(self, context):
+
+        hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id)
+
+        logging.info('Executing SQL: %s', self.sql)
+
+        job_id = hook.execute_query(self.sql, use_legacy_sql=False)
+        result =  hook.fetch(job_id)
+
+        return result
 
 class SstLoadDataOperator(BaseOperator):
     """
+
     Creates a daily partition in BigQuery table,
     based on provided execution time and SQL.
     With option to create a shard instead of partition
+
     """
     ui_color = '#33F3FF'
     template_fields = ('sql',
@@ -208,9 +245,13 @@ class SstLoadDataOperator(BaseOperator):
 
 class SstLastUpdateOperator(BaseOperator):
     """
+
     Gets last loaded timestamp from a BigQuery table
+
     """
     ui_color = '#b4e6f0'
+    template_fields = ('dataset_table',
+                       'last_execution_time')
 
     @apply_defaults
     def __init__(self,
@@ -235,9 +276,9 @@ class SstLastUpdateOperator(BaseOperator):
             self.dataset_table
         )
 
-        if self.partition:
-            self.sql += " where _partitiontime = timestamp('{}')".format(
-                self.execution_time
+        if self.last_execution_time:
+            self.sql += " where _partitiontime >= timestamp('{}')".format(
+                self.last_execution_time
             )
 
         logging.info('Executing SQL: %s', self.sql)
@@ -245,8 +286,8 @@ class SstLastUpdateOperator(BaseOperator):
         job_id = hook.execute_query(self.sql, use_legacy_sql=False)
         result =  hook.fetchone(job_id)
 
-        if result:
-            timestamp = datetime.fromtimestamp(result[self.timestamp_field]).strftime('%Y-%m-%d %H:%M:%S')
+        if result[self.timestamp_field]:
+            timestamp = datetime.utcfromtimestamp(result[self.timestamp_field]).strftime('%Y-%m-%d %H:%M:%S')
         else:
             timestamp = '1970-01-01'
 
@@ -254,8 +295,131 @@ class SstLastUpdateOperator(BaseOperator):
 
         return timestamp
 
+class SstIncrementalLoadDataOperator(BaseOperator):
+    """
+    Incrementally loads data from one table to another, repartitioning if necessary
+
+    """
+    ui_color = '#33FFEC'
+    template_fields = ('sql',
+                       'partition_list_sql',
+                       'source_table',
+                       'destination_table',
+                       'last_update_value'
+    )
+    template_ext = ('.sql',)
+
+    @apply_defaults
+    def __init__(self,
+                 sql,
+                 partition_list_sql,
+                 source_table,
+                 destination_table,
+                 source_partition_column,
+                 destination_partition_column,
+                 last_update_column, 
+                 last_update_value,
+                 bigquery_conn_id='bigquery_default',
+                 use_legacy_sql=False,
+                 *args, 
+                 **kwargs):
+        self.sql = sql
+        self.partition_list_sql = partition_list_sql,
+        self.source_table = source_table
+        self.destination_table = destination_table
+        self.source_partition_column = source_partition_column
+        self.destination_partition_column = destination_partition_column
+        self.last_update_column = last_update_column
+        self.last_update_value = last_update_value
+        self.bigquery_conn_id = bigquery_conn_id
+        self.use_legacy_sql = use_legacy_sql
+        super(SstIncrementalLoadDataOperator, self).__init__(*args, **kwargs)
+    
+    def execute(self, context):
+
+        hook = BigQueryHook(bigquery_conn_id=self.bigquery_conn_id)
+
+        #getting dataset name from destination_table
+        dst_table_array = self.destination_table.split('.')
+        dst_table = dst_table_array[len(dst_table_array) - 1]
+        dst_dataset = dst_table_array[len(dst_table_array) - 2]
+
+        # check if we need to back-off failed load 
+        # we do this if we find any value with higher last update value 
+        # than the one passed as a parameter
+
+        
+        backoff_partitions_sql = """
+            select distinct {} 
+            from `{}` 
+            where {} > timestamp('{}')""".format(
+                self.destination_partition_column,
+                self.destination_table,
+                self.last_update_column,
+                self.last_update_value)
+
+        logging.info('Checking for partitions to back off')
+        logging.info('Executing SQL: ' + backoff_partitions_sql)
+        job_id = hook.execute_query(backoff_partitions_sql, use_legacy_sql=False)
+        backoff_partitions =  hook.fetch(job_id)
+
+        if len(backoff_partitions) > 0:
+            logging.info('Backing off previously loaded partitions')
+        else:
+            logging.info('No need to back off')
+            
+            #get list of partitions to load
+            logging.info('Getting list of partitions to load')
+            job_id = hook.execute_query(self.partition_list_sql, use_legacy_sql=False)
+            partition_list =  hook.fetch(job_id)
+
+            # load partitions
+            logging.info('Loading partitions')
+            for partition in partition_list:
+                load_partition_sql = self.sql.replace(
+                    '#{}#'.format(self.destination_partition_column), 
+                    partition[self.destination_partition_column])
+                logging.info('Executing SQL: ' + load_partition_sql)
+                hook.write_to_table(sql = load_partition_sql,
+                            destination_dataset = dst_dataset,
+                            destination_table = '{}${}'.format(
+                                dst_table,
+                                partition[self.destination_partition_column].replace('-', '')),
+                            write_disposition='WRITE_APPEND')
+
+
+
+
+
+        repartition = False
+
+        if self.source_partition_column != self.destination_partition_column:
+            repartition = True
+        
+
+
+        
+
+
+
+
 class BigQueryPlugin(AirflowPlugin):
     name = "SST AirFlow Plugin"
     operators = [SstLastUpdateOperator,
                  SstLoadDataOperator,
+                 SstQueryDataOperator,
+                 SstIncrementalLoadDataOperator,
                  SstGcsExportOperator]
+
+
+
+
+
+
+
+
+
+
+
+
+

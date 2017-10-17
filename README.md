@@ -27,6 +27,7 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
 * Note: Env variable to load examples is set to 'N' , LOAD_EX=n . Dont change it to 'Y'. there is issue in dag execution.
 
 ##public Docker account credential
+
         username : sstumgdocker
         password: 01music
 
@@ -48,31 +49,50 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
 
 ## General Installation commands
 
-Pull the image from the Docker repository.
+### Pull the image from the Docker repository.
 
-        docker pull sstumgdocker/docker-airflow:1.8.1-custom
+        sudo docker pull sstumgdocker/docker-airflow:1.8.1-custom
 
-## Build
+### Build and tag
 
         docker build --rm -t sstumgdocker/docker-airflow .
         docker tag sstumgdocker/docker-airflow:latest sstumgdocker/docker-airflow:1.8.1-custom
 
-## Usage
+### Deploy containers
 
 By default, docker-airflow runs Airflow with **SequentialExecutor** :
 
-        docker run -d -p 8080:8080 sstumgdocker/docker-airflow:1.8.1-custom
+        sudo docker run -d -p 8080:8080 sstumgdocker/docker-airflow:1.8.1-custom
 
 If you want to run another executor, use the other docker-compose.yml files provided in this repository.
 
 For **LocalExecutor** :
 
-        docker-compose -f docker-compose-LocalExecutor.yml up -d
+        sudo docker-compose -f docker-compose-LocalExecutor.yml up -d
 
 For **CeleryExecutor** :
 
-        docker-compose -f docker-compose-CeleryExecutor-version-1-8-1-custom.yml up -d
+        sudo docker-compose -f docker-compose-CeleryExecutor-version-1-8-1-custom.yml up -d
 
+### stop docker compose(collection of containers)
+
+        sudo docker-compose -f docker-compose-CeleryExecutor-version-1-8-1-custom.yml down
+
+
+### check  contianers
+
+        Active -> sudo docker ps
+        Inactive -> sudo docker ps -a
+
+### Login to container bash
+
+        sudo docker exec -it <container_id> bash
+        
+
+### stop individual container 
+
+        sudo docker stop <container_id>
+        
 ## Note : 
 don't load examples while starting the docker container. There is a issue and it doesn't allow any dags to trigger. set LOAD_EX=n always :
 
@@ -91,6 +111,11 @@ For encrypted connection passwords (in Local or Celery Executor), you must have 
 
         python -c "from cryptography.fernet import Fernet; FERNET_KEY = Fernet.generate_key().decode(); print FERNET_KEY"
 
+## Things todo
+
+- Airflow writes lot of log even though the logs are copied into Gcloud storage, the source log within the contianer is needs to be cleaned up . probably scheduled job to clean up logs older than 3 months.
+- Retain the state info and log info of dag and task instances incase of container shutdown or needs to restarted with fresh image.
+- Externalize postgres and integrate with cloud sql
 
 
 ## Install custom python package

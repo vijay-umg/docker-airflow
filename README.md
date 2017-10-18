@@ -7,8 +7,8 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
 ## Docker image Informations
 
 * Based on Python (2.7-stretch) official Image [python:2.7-stretch](https://hub.docker.com/_/python/) and uses the official [Postgres](https://hub.docker.com/_/postgres/) as backend and [Redis](https://hub.docker.com/_/redis/) as queue
-* Install [Docker](https://www.docker.com/)
-* Install [Docker Compose](https://docs.docker.com/compose/install/)
+* Install [Docker](https://docs.docker.com/engine/installation/linux/docker-ce/debian/#install-from-a-package)
+* Install [Docker Compose](https://docs.docker.com/engine/installation/linux/docker-ce/debian/#install-docker-compose-for-raspbian)
 * Following the custom Airflow  from github [Airflow](https://github.com/umg/sstumg-incubator-airflow.git)
 * Install Java 1.8
 * Google cloud SDK
@@ -42,7 +42,7 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
         sudo docker-compose -f docker-compose-CeleryExecutor-version-1-8-1-custom.yml up -d
         
         scale worker containers by
-        docker-compose scale worker=5
+        sudo docker-compose -f docker-compose-CeleryExecutor-version-1-8-1-custom.yml scale worker=5
 6. scp the dag file to /opt/airflow/dags. give it a few mins to sync with airflow container.
 7. create folder based on application name in /opt/app
 8. scp jar file or code to /opt/app/{app_name}.
@@ -135,7 +135,8 @@ For encrypted connection passwords (in Local or Celery Executor), you must have 
 
 Easy scaling using docker-compose:
 
-        docker-compose scale worker=5
+       sudo docker-compose scale worker=5
+        sudo docker-compose -f docker-compose-CeleryExecutor-version-1-8-1-custom.yml scale worker=5
 
 
 

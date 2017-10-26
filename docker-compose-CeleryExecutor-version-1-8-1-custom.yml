@@ -8,7 +8,7 @@ services:
         environment:
             - POSTGRES_USER=airflow
             - POSTGRES_PASSWORD=airflow
-            - POSTGRES_DB=airflow
+              - POSTGRES_DB=airflow
 
     webserver:
         image: sstumgdocker/docker-airflow:1.8.1-custom
@@ -23,6 +23,7 @@ services:
             - PROJECT_NAME=umg-swift
         volumes:
             - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
             - /opt/app:/opt/app
 
         ports:
@@ -47,6 +48,7 @@ services:
             - webserver
         volumes:
             - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
             - /opt/app:/opt/app
 
         environment:
@@ -63,6 +65,7 @@ services:
             - scheduler
         volumes:
             - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
             - /opt/app:/opt/app
 
         environment:

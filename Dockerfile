@@ -5,6 +5,7 @@
 # SOURCE: https://github.com/umg/sstumg-incubator-airflow/tree/v1-8-stable-add-dataflow-status
 
 FROM python:2.7-stretch
+#FROM phusion/baseimage
 
 
 MAINTAINER Vijay_
@@ -16,6 +17,14 @@ ENV TERM linux
 # Enable this when want to install airflow based on version for apache-airflow/airflow
 #ARG AIRFLOW_VERSION=1.8.0
 ARG AIRFLOW_HOME=/usr/local/airflow
+
+#ARG MONGO_PACKAGE=mongodb-org
+#ARG MONGO_REPO=repo.mongodb.org
+#ENV MONGO_PACKAGE=${MONGO_PACKAGE} MONGO_REPO=${MONGO_REPO}
+
+#ENV MONGO_MAJOR 3.2
+#ENV MONGO_VERSION 3.2.17
+
 
 # Define en_US.
 ENV LANGUAGE en_US.UTF-8
@@ -78,6 +87,16 @@ RUN set -ex \
                 openjdk-8-jre-headless \
                  ca-certificates-java \
                 --assume-yes \
+    #mongo shell
+
+    && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 7F0CEB10 \
+        && echo "deb http://repo.mongodb.org/apt/ubuntu trusty/mongodb-org/3.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-3.0.list  \
+        && apt-get update \
+        && apt-get install -y --force-yes mongodb-org-shell=3.0.7 mongodb-org-tools=3.0.7 \
+        #service mongod stop && \
+        #apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+
     && curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz \
     && mkdir -p /usr/local/gcloud \
     && tar -C /usr/local/gcloud -xvf /tmp/google-cloud-sdk.tar.gz \

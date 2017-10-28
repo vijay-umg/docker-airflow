@@ -49,14 +49,21 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
 
 ## General Installation commands
 
-### Pull the image from the Docker repository.
-
-        sudo docker pull sstumgdocker/docker-airflow:1.8.1-custom
 
 ### Build and tag
 
         docker build --rm -t sstumgdocker/docker-airflow .
         docker tag sstumgdocker/docker-airflow:latest sstumgdocker/docker-airflow:1.8.1-custom
+        
+### push image to public docker hub
+
+        docker push sstumgdocker/docker-airflow:1.8.1-custom
+
+### Pull the image from the Docker repository.
+
+        sudo docker pull sstumgdocker/docker-airflow:1.8.1-custom
+
+
 
 ### Deploy containers
 

@@ -69,7 +69,7 @@ Build based on core framework from puckel airflow(https://github.com/puckel/dock
 
 By default, docker-airflow runs Airflow with **SequentialExecutor** :
 
-        sudo docker run -d -p 8080:8080 sstumgdocker/docker-airflow:1.8.1-custom
+        sudo docker run -d -p 8080:8080 -e LOAD_EX=n sstumgdocker/docker-airflow:1.8.1-custom
 
 If you want to run another executor, use the other docker-compose.yml files provided in this repository.
 
@@ -106,7 +106,7 @@ don't load examples while starting the docker container. There is a issue and it
 
 `LOAD_EX=n`
 
-        docker run -d -p 8080:8080 -e LOAD_EX=n puckel/docker-airflow
+        docker run -d -p 8080:8080 -e LOAD_EX=n sstumgdocker/docker-airflow:1.8.1-custom
 
 If you want to use Ad hoc query, make sure you've configured connections:
 Go to Admin -> Connections and Edit "postgres_default" set this values (equivalent to values in airflow.cfg/docker-compose*.yml) :

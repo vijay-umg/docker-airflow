@@ -14,11 +14,30 @@ TRY_LOOP="20"
 : ${POSTGRES_PASSWORD:="airflow"}
 : ${POSTGRES_DB:="airflow"}
 
+
+: ${MYSQL_HOST:="127.0.0.1"}
+: ${MYSQL_PORT:="3306"}
+: ${MYSQL_USER:="airflow"}
+: ${MYSQL_PASSWORD:="airflow"}
+: ${MYSQL_DB:="airflow"}
+
+: ${CLOUD_SQL_INSTANCE_PORT:="3306"}
+
+: ${IS_CLOUD_SQL:="N"}
+
+: ${IS_MYSQL:="N"}
+
+
 : ${FERNET_KEY:=$(python -c "from cryptography.fernet import Fernet; FERNET_KEY = Fernet.generate_key().decode(); print(FERNET_KEY)")}
 
 # Load DAGs exemples (default: Yes)
 if [ "$LOAD_EX" = "n" ]; then
     sed -i "s/load_examples = True/load_examples = False/" "$AIRFLOW_HOME"/airflow.cfg
+fi
+
+# kickstart cloud sql proxy in  (default: Yes)
+if [ "$IS_CLOUD_SQL" = "Y" ]; then
+ nohup /usr/local/cloud_sql_proxy -instances=$CLOUD_SQL_INSTANCE_NAME=tcp:$CLOUD_SQL_INSTANCE_PORT &
 fi
 
 # Install custome python package if requirements.txt is present
@@ -41,17 +60,31 @@ fi
 # Wait for Postresql
 if [ "$1" = "webserver" ] || [ "$1" = "worker" ] || [ "$1" = "scheduler" ] ; then
   i=0
-  while ! nc -z $POSTGRES_HOST $POSTGRES_PORT >/dev/null 2>&1 < /dev/null; do
-    i=$((i+1))
-    if [ "$1" = "webserver" ]; then
-      echo "$(date) - waiting for ${POSTGRES_HOST}:${POSTGRES_PORT}... $i/$TRY_LOOP"
-      if [ $i -ge $TRY_LOOP ]; then
-        echo "$(date) - ${POSTGRES_HOST}:${POSTGRES_PORT} still not reachable, giving up"
-        exit 1
-      fi
-    fi
-    sleep 10
-  done
+  if [ "$IS_MYSQL" = "Y" ]; then
+      while ! nc -z $MYSQL_HOST $MYSQL_PORT >/dev/null 2>&1 < /dev/null; do
+        i=$((i+1))
+        if [ "$1" = "webserver" ]; then
+          echo "$(date) - waiting for ${MYSQL_HOST}:${MYSQL_PORT}... $i/$TRY_LOOP"
+          if [ $i -ge $TRY_LOOP ]; then
+            echo "$(date) - ${MYSQL_HOST}:${MYSQL_PORT} still not reachable, giving up"
+            exit 1
+          fi
+        fi
+        sleep 10
+      done
+  else
+      while ! nc -z $POSTGRES_HOST $POSTGRES_PORT >/dev/null 2>&1 < /dev/null; do
+        i=$((i+1))
+        if [ "$1" = "webserver" ]; then
+          echo "$(date) - waiting for ${POSTGRES_HOST}:${POSTGRES_PORT}... $i/$TRY_LOOP"
+          if [ $i -ge $TRY_LOOP ]; then
+            echo "$(date) - ${POSTGRES_HOST}:${POSTGRES_PORT} still not reachable, giving up"
+            exit 1
+          fi
+        fi
+        sleep 10
+      done
+  fi
 fi
 
 # Update configuration depending the type of Executor
@@ -70,8 +103,14 @@ then
       sleep 5
     done
   fi
-  sed -i "s#celery_result_backend = db+postgresql://airflow:airflow@postgres/airflow#celery_result_backend = db+postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB#" "$AIRFLOW_HOME"/airflow.cfg
-  sed -i "s#sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@postgres/airflow#sql_alchemy_conn = postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB#" "$AIRFLOW_HOME"/airflow.cfg
+  if [ "$IS_MYSQL" = "Y" ]; then
+    sed -i "s#sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@postgres/airflow#sql_alchemy_conn = mysql+mysqldb://$MYSQL_USER:$MYSQL_PASSWORD@$MYSQL_HOST:$MYSQL_PORT/$MYSQL_DB#" "$AIRFLOW_HOME"/airflow.cfg
+    sed -i "s#celery_result_backend = db+postgresql://airflow:airflow@postgres/airflow#celery_result_backend = db+mysql://$MYSQL_USER:$MYSQL_PASSWORD@$MYSQL_HOST:$MYSQL_PORT/$MYSQL_DB#" "$AIRFLOW_HOME"/airflow.cfg
+  else
+    sed -i "s#sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@postgres/airflow#sql_alchemy_conn = postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB#" "$AIRFLOW_HOME"/airflow.cfg
+    sed -i "s#celery_result_backend = db+postgresql://airflow:airflow@postgres/airflow#celery_result_backend = db+postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB#" "$AIRFLOW_HOME"/airflow.cfg
+  fi
+
   sed -i "s#broker_url = redis://redis:6379/1#broker_url = redis://$REDIS_PREFIX$REDIS_HOST:$REDIS_PORT/1#" "$AIRFLOW_HOME"/airflow.cfg
   if [ "$1" = "webserver" ]; then
     echo "Initialize database..."
@@ -84,7 +123,12 @@ then
 elif [ "$EXECUTOR" = "Local" ]
 then
   sed -i "s/executor = CeleryExecutor/executor = LocalExecutor/" "$AIRFLOW_HOME"/airflow.cfg
-  sed -i "s#sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@postgres/airflow#sql_alchemy_conn = postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB#" "$AIRFLOW_HOME"/airflow.cfg
+  if [ "$IS_MYSQL" = "Y" ]; then
+    sed -i "s#sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@postgres/airflow#sql_alchemy_conn = mysql+mysqldb://$MYSQL_USER:$MYSQL_PASSWORD@$MYSQL_HOST:$MYSQL_PORT/$MYSQL_DB#" "$AIRFLOW_HOME"/airflow.cfg
+  else
+    sed -i "s#sql_alchemy_conn = postgresql+psycopg2://airflow:airflow@postgres/airflow#sql_alchemy_conn = postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST:$POSTGRES_PORT/$POSTGRES_DB#" "$AIRFLOW_HOME"/airflow.cfg
+  fi
+
   sed -i "s#broker_url = redis://redis:6379/1#broker_url = redis://$REDIS_PREFIX$REDIS_HOST:$REDIS_PORT/1#" "$AIRFLOW_HOME"/airflow.cfg
   echo "Initialize database..."
   $CMD initdb

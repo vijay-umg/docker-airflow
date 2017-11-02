@@ -1,0 +1,105 @@
+version: '2'
+services:
+    redis:
+        image: 'redis:3.2.7'
+
+
+
+    webserver:
+        image: sstumgdocker/docker-airflow-cloudsql:1.8.1-custom
+        restart: always
+        depends_on:
+            - redis
+        environment:
+            - LOAD_EX=n
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            - PROJECT_NAME=umg-swift
+            - IS_CLOUD_SQL=Y
+            - IS_MYSQL=Y
+            - CLOUD_SQL_INSTANCE_PORT=3306
+            - CLOUD_SQL_INSTANCE_NAME=umg-swift:us-central1:umg-swift-cloud-sql
+            - MYSQL_HOST=127.0.0.1
+            - MYSQL_PORT=3306
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=pass@word1
+            - MYSQL_DB=airflow_subnet
+        volumes:
+            - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
+            - /opt/app:/opt/app
+
+        ports:
+            - "8080:8080"
+        command: webserver
+
+    flower:
+        image: sstumgdocker/docker-airflow-cloudsql:1.8.1-custom
+        restart: always
+        depends_on:
+            - redis
+        environment:
+            - EXECUTOR=Celery
+            - IS_CLOUD_SQL=Y
+            - IS_MYSQL=Y
+            - CLOUD_SQL_INSTANCE_PORT=3306
+            - CLOUD_SQL_INSTANCE_NAME=umg-swift:us-central1:umg-swift-cloud-sql
+            - MYSQL_HOST=127.0.0.1
+            - MYSQL_PORT=3306
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=pass@word1
+            - MYSQL_DB=airflow_subnet
+        ports:
+            - "5555:5555"
+        command: flower
+
+    scheduler:
+        image: sstumgdocker/docker-airflow-cloudsql:1.8.1-custom
+        restart: always
+        depends_on:
+            - webserver
+        volumes:
+            - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
+            - /opt/app:/opt/app
+
+        environment:
+            - LOAD_EX=n
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            - PROJECT_NAME=umg-swift
+            - IS_CLOUD_SQL=Y
+            - IS_MYSQL=Y
+            - CLOUD_SQL_INSTANCE_PORT=3306
+            - CLOUD_SQL_INSTANCE_NAME=umg-swift:us-central1:umg-swift-cloud-sql
+            - MYSQL_HOST=127.0.0.1
+            - MYSQL_PORT=3306
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=pass@word1
+            - MYSQL_DB=airflow_subnet
+        command: scheduler
+
+    worker:
+        image: sstumgdocker/docker-airflow-cloudsql:1.8.1-custom
+        restart: always
+        depends_on:
+            - scheduler
+        volumes:
+            - /opt/airflow/dags:/usr/local/airflow/dags
+            - /opt/airflow/plugins:/usr/local/airflow/plugins
+            - /opt/app:/opt/app
+
+        environment:
+            - FERNET_KEY=46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            - EXECUTOR=Celery
+            - PROJECT_NAME=umg-swift
+            - IS_CLOUD_SQL=Y
+            - IS_MYSQL=Y
+            - CLOUD_SQL_INSTANCE_PORT=3306
+            - CLOUD_SQL_INSTANCE_NAME=umg-swift:us-central1:umg-swift-cloud-sql
+            - MYSQL_HOST=127.0.0.1
+            - MYSQL_PORT=3306
+            - MYSQL_USER=root
+            - MYSQL_PASSWORD=pass@word1
+            - MYSQL_DB=airflow_subnet
+        command: worker

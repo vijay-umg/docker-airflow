@@ -70,7 +70,7 @@ RUN set -ex \
     && git clone https://github.com/umg/sstumg-incubator-airflow.git \
     && cd sstumg-incubator-airflow \
     && git checkout v1-8-stable-add-dataflow-status \
-    && pip install -e .[crypto,celery,postgres,jdbc,gcp_api] \
+    && pip install -e .[crypto,celery,postgres,mysql,jdbc,gcp_api] \
     && pip install bigquery-python \
     #this can install from apache-airflow or airflow based on version
     #&& pip install airflow[crypto,celery,postgres,jdbc,gcp_api]==$AIRFLOW_VERSION \
@@ -90,6 +90,11 @@ RUN set -ex \
         && apt-get install -y --force-yes mongodb-org-shell=3.0.7 mongodb-org-tools=3.0.7 \
 
 
+    ##cloud sql proxy
+
+    && wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy \
+    && chmod +x cloud_sql_proxy \
+    && mv cloud_sql_proxy /usr/local/ \
 
     && curl https://dl.google.com/dl/cloudsdk/release/google-cloud-sdk.tar.gz > /tmp/google-cloud-sdk.tar.gz \
     && mkdir -p /usr/local/gcloud \
@@ -124,7 +129,7 @@ COPY plugins/* ${AIRFLOW_HOME}/plugins/
 
 
 
-EXPOSE 8080 5555 8793
+EXPOSE 8080 5555 8793 3306
 
 USER airflow
 WORKDIR ${AIRFLOW_HOME}
